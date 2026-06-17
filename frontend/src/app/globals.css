@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-:root {
 @theme {
   --color-background: #04040f;
   --color-surface: rgba(8, 12, 35, 0.85);

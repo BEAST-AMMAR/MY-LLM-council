@@ -6,13 +6,16 @@ import asyncio
 # Need to import app from server
 import server
 
-@pytest.fixture
-def cli(event_loop, aiohttp_client):
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def cli(aiohttp_client):
     app = server.app
     # Set mock mode for testing
     server.MOCK_MODE = True
-    return event_loop.run_until_complete(aiohttp_client(app))
+    return await aiohttp_client(app)
 
+@pytest.mark.asyncio
 async def test_health_check(cli):
     resp = await cli.get('/api/health')
     assert resp.status == 200
@@ -20,6 +23,7 @@ async def test_health_check(cli):
     assert data['status'] == 'online'
     assert 'mock_mode' in data
 
+@pytest.mark.asyncio
 async def test_inference_missing_fields(cli):
     resp = await cli.post('/api/infer', json={"agent_id": "sage"})
     assert resp.status == 400
@@ -27,6 +31,7 @@ async def test_inference_missing_fields(cli):
     assert "error" in data
     assert "Missing agent_id or prompt" in data['error']
 
+@pytest.mark.asyncio
 async def test_inference_invalid_agent(cli):
     resp = await cli.post('/api/infer', json={"agent_id": "fake_agent", "prompt": "Hello"})
     assert resp.status == 400
@@ -34,6 +39,7 @@ async def test_inference_invalid_agent(cli):
     assert "error" in data
     assert "Unknown agent" in data['error']
 
+@pytest.mark.asyncio
 async def test_inference_prompt_too_long(cli):
     long_prompt = "a" * 4001
     resp = await cli.post('/api/infer', json={"agent_id": "sage", "prompt": long_prompt})
@@ -42,6 +48,7 @@ async def test_inference_prompt_too_long(cli):
     assert "error" in data
     assert "Prompt too long" in data['error']
 
+@pytest.mark.asyncio
 async def test_rate_limiting(cli):
     # Send 21 requests to trigger rate limit (limit is 20)
     for _ in range(20):
@@ -60,6 +67,7 @@ async def test_rate_limiting(cli):
     # Clean up rate limits for other tests if necessary
     server.rate_limits.clear()
 
+@pytest.mark.asyncio
 async def test_inference_success(cli):
     server.rate_limits.clear()
     resp = await cli.post('/api/infer', json={"agent_id": "sage", "prompt": "Hello world"})

@@ -1,7 +1,7 @@
 "use client";
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Network, Terminal, Keyboard, Camera, Mic, Image as ImageIcon, Gavel, Brain, ChartBar, ChessKnight, Search, Loader2 } from 'lucide-react';
+import { Network, Terminal, Mic, Gavel, Brain, ChartBar, ChessKnight, Search, Loader2, Volume2, FileJson, FileText } from 'lucide-react';
 
 const AGENTS = [
   { id: 'sage', name: 'SAGE', title: 'The Philosopher', color: '#4facfe', icon: Brain },
@@ -17,6 +17,74 @@ export default function CouncilApp() {
   const [chamberActive, setChamberActive] = useState(false);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [judgeVerdict, setJudgeVerdict] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleMicClick = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition API not supported in this browser.');
+      return;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    
+    recognition.onstart = () => setIsRecording(true);
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result[0].transcript)
+        .join('');
+      setQuestion(transcript);
+    };
+    recognition.onerror = (event: any) => {
+      console.error(event.error);
+      setIsRecording(false);
+    };
+    recognition.onend = () => setIsRecording(false);
+    
+    recognition.start();
+  };
+
+  const speakVerdict = () => {
+    if (!judgeVerdict) return;
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(judgeVerdict);
+    utterance.onend = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleExport = (format: 'json' | 'md') => {
+    let content = "";
+    let type = "text/plain";
+    let filename = `llm_council_export.${format}`;
+
+    if (format === 'json') {
+      content = JSON.stringify({ question, responses, judgeVerdict }, null, 2);
+      type = "application/json";
+    } else {
+      content = `# LLM Council Debate\n\n## Prompt\n${question}\n\n`;
+      for (const agent of AGENTS) {
+        content += `## ${agent.name} (${agent.title})\n${responses[agent.id] || ''}\n\n`;
+      }
+      content += `## Judge Verdict\n${judgeVerdict}\n`;
+      type = "text/markdown";
+    }
+
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleConvene = async () => {
     if (!question.trim()) return;
@@ -109,8 +177,17 @@ export default function CouncilApp() {
           animate={{ opacity: 1, y: 0 }}
           className="relative z-10 max-w-3xl mx-auto mt-32 p-8 glass-panel rounded-2xl"
         >
-          <div className="flex items-center gap-2 text-[#4facfe] text-sm tracking-widest mb-6 font-bold">
-            <Terminal className="w-4 h-4" /> QUERY INPUT
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2 text-[#4facfe] text-sm tracking-widest font-bold">
+              <Terminal className="w-4 h-4" /> QUERY INPUT
+            </div>
+            <button
+              onClick={handleMicClick}
+              className={`flex items-center justify-center w-10 h-10 rounded-full transition-all border ${isRecording ? 'bg-[#ff6b6b]/20 border-[#ff6b6b] text-[#ff6b6b] animate-pulse' : 'bg-[#4facfe]/10 border-[#4facfe]/30 text-[#4facfe] hover:bg-[#4facfe]/20 hover:border-[#4facfe]'}`}
+              title="Voice Input"
+            >
+              <Mic className="w-5 h-5" />
+            </button>
           </div>
           
           <textarea
@@ -147,7 +224,18 @@ export default function CouncilApp() {
                 <Gavel className="w-6 h-6" />
               </div>
               <h2 className="text-center font-black tracking-widest text-[#ffd700] text-xl">JUDGE</h2>
-              <p className="text-center text-xs tracking-widest text-[#7a92b4] mb-4">HEAD OF COUNCIL</p>
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <p className="text-center text-xs tracking-widest text-[#7a92b4]">HEAD OF COUNCIL</p>
+                {status === "SESSION COMPLETE" && (
+                  <button 
+                    onClick={speakVerdict}
+                    className={`p-1.5 rounded-full transition-all border ${isSpeaking ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700] animate-pulse' : 'bg-transparent border-transparent text-[#7a92b4] hover:text-[#ffd700] hover:bg-[#ffd700]/10'}`}
+                    title={isSpeaking ? "Stop Speaking" : "Read Verdict"}
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               
               <div className="bg-black/40 rounded-xl p-4 min-h-[80px] border border-[rgba(79,172,254,0.15)] text-sm leading-relaxed whitespace-pre-wrap">
                 {judgeVerdict || <span className="text-[#7a92b4] animate-pulse">Standing by for council arguments...</span>}
@@ -182,6 +270,28 @@ export default function CouncilApp() {
                 )
               })}
             </div>
+            
+            {/* Export Actions */}
+            {status === "SESSION COMPLETE" && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-12 flex items-center justify-center gap-4"
+              >
+                <button 
+                  onClick={() => handleExport('md')}
+                  className="flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold tracking-widest border border-[#a855f7]/50 text-[#a855f7] bg-[#a855f7]/10 hover:bg-[#a855f7]/20 hover:shadow-[0_0_15px_rgba(168,85,247,0.3)] transition-all"
+                >
+                  <FileText className="w-4 h-4" /> EXPORT MD
+                </button>
+                <button 
+                  onClick={() => handleExport('json')}
+                  className="flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold tracking-widest border border-[#00f260]/50 text-[#00f260] bg-[#00f260]/10 hover:bg-[#00f260]/20 hover:shadow-[0_0_15px_rgba(0,242,96,0.3)] transition-all"
+                >
+                  <FileJson className="w-4 h-4" /> EXPORT JSON
+                </button>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
