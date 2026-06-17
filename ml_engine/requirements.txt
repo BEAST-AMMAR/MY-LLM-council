@@ -1,0 +1,6 @@
+aiohttp
+aiohttp-cors
+huggingface-hub
+llama-cpp-python
+pytest
+pytest-asyncio

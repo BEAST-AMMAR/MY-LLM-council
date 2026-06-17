@@ -1,0 +1,215 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "probe-api",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$ErrorActionPreference='Stop';",
+				"$h=Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/health' -Method GET;",
+				"$a=Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/agents' -Method GET;",
+				"$c=Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/council/start' -Method POST;",
+				"'HEALTH=' + ($h | ConvertTo-Json -Depth 10 -Compress);",
+				"'AGENTS=' + ($a | ConvertTo-Json -Depth 10 -Compress);",
+				"'COUNCIL=' + ($c | ConvertTo-Json -Depth 10 -Compress)"
+			]
+		},
+		{
+			"label": "probe-api-2",
+			"type": "shell",
+			"command": "$ErrorActionPreference='Stop'; $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/health' -Method GET; $a=Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/agents' -Method GET; $c=Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/council/start' -Method POST; Write-Output ('HEALTH=' + ($h | ConvertTo-Json -Depth 10 -Compress)); Write-Output ('AGENTS=' + ($a | ConvertTo-Json -Depth 10 -Compress)); Write-Output ('COUNCIL=' + ($c | ConvertTo-Json -Depth 10 -Compress));"
+		},
+		{
+			"label": "run-api-8000",
+			"type": "shell",
+			"command": "\"f:/onedrive backup/OneDrive/Desktop/LLM council/.venv/Scripts/python.exe\" -m uvicorn backend.app:app --host 127.0.0.1 --port 8000",
+			"isBackground": true
+		},
+		{
+			"label": "debug-run-backend",
+			"type": "shell",
+			"command": "\"f:/onedrive backup/OneDrive/Desktop/LLM council/.venv/Scripts/python.exe\" backend/app.py"
+		},
+		{
+			"label": "run-api-8000-fixed",
+			"type": "shell",
+			"command": "& \"f:/onedrive backup/OneDrive/Desktop/LLM council/.venv/Scripts/python.exe\" -m uvicorn backend.app:app --host 127.0.0.1 --port 8000",
+			"isBackground": true
+		},
+		{
+			"label": "run-api-8000-rel",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000",
+			"isBackground": true
+		},
+		{
+			"label": "probe-api-final",
+			"type": "shell",
+			"command": "$ErrorActionPreference='Stop'; $healthResp=Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/health' -Method GET; $agentsResp=Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/agents' -Method GET; $startResp=Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/council/start' -Method POST -Body @{question='runtime probe';rounds='1'}; $health=$healthResp.Content | ConvertFrom-Json; $agents=$agentsResp.Content | ConvertFrom-Json; $start=$startResp.Content | ConvertFrom-Json; $primaryModels=@($agents.agents | ForEach-Object { $_.model } | Select-Object -Unique); $agentsWithFallbacks=@($agents.agents | Where-Object { $_.models -and $_.models.Count -gt 1 }); $judgeHasFallbacks=($agents.judge.models -and $agents.judge.models.Count -gt 1); Write-Output ('HEALTH_STATUS=' + $healthResp.StatusCode); Write-Output ('HEALTH_BODY=' + ($health | ConvertTo-Json -Depth 10 -Compress)); Write-Output ('AGENTS_STATUS=' + $agentsResp.StatusCode); Write-Output ('PRIMARY_MODELS_UNIQUE=' + $primaryModels.Count); Write-Output ('PRIMARY_MODELS=' + (($primaryModels -join ',') )); Write-Output ('AGENTS_WITH_FALLBACKS=' + $agentsWithFallbacks.Count); Write-Output ('JUDGE_HAS_FALLBACKS=' + $judgeHasFallbacks); Write-Output ('AGENTS_BODY=' + ($agents | ConvertTo-Json -Depth 10 -Compress)); Write-Output ('START_STATUS=' + $startResp.StatusCode); Write-Output ('START_HAS_SESSION_ID=' + [bool]$start.session_id); Write-Output ('START_BODY=' + ($start | ConvertTo-Json -Depth 10 -Compress));"
+		},
+		{
+			"label": "probe-api-8001-e2e",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$ErrorActionPreference='Stop'; $base='http://127.0.0.1:8001'; $maxSeconds=480; $intervalSeconds=2; function Out($k,$v){ Write-Output ($k + '=' + $v) }; try { $healthResp = Invoke-WebRequest -Uri \"$base/api/health\" -Method GET; $health = $healthResp.Content | ConvertFrom-Json; Out 'HEALTH_STATUS' $healthResp.StatusCode; Out 'HEALTH_BODY' (($health | ConvertTo-Json -Depth 20 -Compress)); $agentsResp = Invoke-WebRequest -Uri \"$base/api/agents\" -Method GET; $agents = $agentsResp.Content | ConvertFrom-Json; Out 'AGENTS_STATUS' $agentsResp.StatusCode; $agentCount = if($agents.agents){ $agents.agents.Count } else { 0 }; Out 'AGENT_COUNT' $agentCount; $agentNames = if($agents.agents){ ($agents.agents | ForEach-Object { $_.name }) -join ',' } else { '' }; Out 'AGENT_NAMES' $agentNames; Out 'AGENTS_BODY' (($agents | ConvertTo-Json -Depth 20 -Compress)); $question='Quick live e2e check: is this council pipeline healthy?'; $startResp = Invoke-WebRequest -Uri \"$base/api/council/start\" -Method POST -Body @{ question=$question; rounds='1' }; $start = $startResp.Content | ConvertFrom-Json; Out 'START_STATUS' $startResp.StatusCode; Out 'START_BODY' (($start | ConvertTo-Json -Depth 20 -Compress)); if(-not $start.session_id){ throw 'start response missing session_id' }; $sessionId = $start.session_id; Out 'SESSION_ID' $sessionId; $elapsed = 0; $result = $null; while($elapsed -lt $maxSeconds){ Start-Sleep -Seconds $intervalSeconds; $elapsed += $intervalSeconds; try { $resResp = Invoke-WebRequest -Uri \"$base/api/council/result/$sessionId\" -Method GET; $resObj = $resResp.Content | ConvertFrom-Json; $hasResult = $false; if($null -ne $resObj){ if($resObj.PSObject.Properties.Name -contains 'result'){ if($null -ne $resObj.result){ $hasResult = $true } } elseif($resObj.PSObject.Properties.Name -contains 'status'){ if(($resObj.status -eq 'completed') -or ($resObj.status -eq 'done') -or ($resObj.status -eq 'success')){ $hasResult = $true } } }; Out 'POLL_T' $elapsed; Out 'POLL_STATUS' $resResp.StatusCode; if($hasResult){ $result = $resObj; break } } catch { Out 'POLL_T' $elapsed; Out 'POLL_ERROR' $_.Exception.Message } }; if($null -eq $result){ throw (\"timeout after ${maxSeconds}s waiting for result for session_id=$sessionId\") }; Out 'RESULT_BODY' (($result | ConvertTo-Json -Depth 40 -Compress)); $verdict = $null; $confidence = $null; $rerun = $null; $delib = $null; if($result.PSObject.Properties.Name -contains 'result'){ $inner = $result.result } else { $inner = $result }; if($null -ne $inner){ if($inner.PSObject.Properties.Name -contains 'verdict'){ $verdict = $inner.verdict }; if($inner.PSObject.Properties.Name -contains 'confidence'){ $confidence = $inner.confidence }; if($inner.PSObject.Properties.Name -contains 'rerun'){ $rerun = $inner.rerun }; if($inner.PSObject.Properties.Name -contains 'deliberation_log'){ $delib = $inner.deliberation_log } }; $preview = ''; if($verdict){ $s=[string]$verdict; $preview = if($s.Length -gt 220){ $s.Substring(0,220) } else { $s } }; Out 'FINAL_VERDICT_PREVIEW' $preview; Out 'FINAL_CONFIDENCE' $confidence; Out 'FINAL_RERUN' $rerun; if($delib){ $models = @(); foreach($item in $delib){ $agent=''; $model=''; if($item.PSObject.Properties.Name -contains 'agent'){ $agent=[string]$item.agent } elseif($item.PSObject.Properties.Name -contains 'name'){ $agent=[string]$item.name }; if($item.PSObject.Properties.Name -contains 'model'){ $model=[string]$item.model } elseif($item.PSObject.Properties.Name -contains 'used_model'){ $model=[string]$item.used_model } elseif($item.PSObject.Properties.Name -contains 'selected_model'){ $model=[string]$item.selected_model }; if($agent -or $model){ $models += (\"$agent=>$model\") } }; Out 'AGENT_MODELS' ($models -join ';') } else { Out 'AGENT_MODELS' '' }; Out 'FINAL_STATUS' 'SUCCESS' } catch { Out 'FINAL_STATUS' 'ERROR'; Out 'ERROR_REASON' $_.Exception.Message; if($_.ScriptStackTrace){ Out 'ERROR_STACK' $_.ScriptStackTrace }; exit 1 }"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "probe-api-8001-e2e-v2",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"$ErrorActionPreference=\\\"Stop\\\"; $base=\\\"http://127.0.0.1:8001\\\"; $maxSeconds=480; $intervalSeconds=2; function Out($k,$v){ Write-Output ($k + \\\"=\\\" + $v) }; try { $healthResp = Invoke-WebRequest -Uri \\\"$base/api/health\\\" -Method GET; $health = $healthResp.Content | ConvertFrom-Json; Out \\\"HEALTH_STATUS\\\" $healthResp.StatusCode; Out \\\"HEALTH_BODY\\\" (($health | ConvertTo-Json -Depth 20 -Compress)); $agentsResp = Invoke-WebRequest -Uri \\\"$base/api/agents\\\" -Method GET; $agents = $agentsResp.Content | ConvertFrom-Json; Out \\\"AGENTS_STATUS\\\" $agentsResp.StatusCode; $agentCount = if($agents.agents){ $agents.agents.Count } else { 0 }; Out \\\"AGENT_COUNT\\\" $agentCount; $agentNames = if($agents.agents){ ($agents.agents | ForEach-Object { $_.name }) -join \\\",\\\" } else { \\\"\\\" }; Out \\\"AGENT_NAMES\\\" $agentNames; Out \\\"AGENTS_BODY\\\" (($agents | ConvertTo-Json -Depth 20 -Compress)); $question=\\\"Quick live e2e check: is this council pipeline healthy?\\\"; $startResp = Invoke-WebRequest -Uri \\\"$base/api/council/start\\\" -Method POST -Body @{ question=$question; rounds=\\\"1\\\" }; $start = $startResp.Content | ConvertFrom-Json; Out \\\"START_STATUS\\\" $startResp.StatusCode; Out \\\"START_BODY\\\" (($start | ConvertTo-Json -Depth 20 -Compress)); if(-not $start.session_id){ throw \\\"start response missing session_id\\\" }; $sessionId = $start.session_id; Out \\\"SESSION_ID\\\" $sessionId; $elapsed = 0; $result = $null; while($elapsed -lt $maxSeconds){ Start-Sleep -Seconds $intervalSeconds; $elapsed += $intervalSeconds; try { $resResp = Invoke-WebRequest -Uri \\\"$base/api/council/result/$sessionId\\\" -Method GET; $resObj = $resResp.Content | ConvertFrom-Json; $hasResult = $false; if($null -ne $resObj){ if($resObj.PSObject.Properties.Name -contains \\\"result\\\"){ if($null -ne $resObj.result){ $hasResult = $true } } elseif($resObj.PSObject.Properties.Name -contains \\\"status\\\"){ if(($resObj.status -eq \\\"completed\\\") -or ($resObj.status -eq \\\"done\\\") -or ($resObj.status -eq \\\"success\\\")){ $hasResult = $true } } }; Out \\\"POLL_T\\\" $elapsed; Out \\\"POLL_STATUS\\\" $resResp.StatusCode; if($hasResult){ $result = $resObj; break } } catch { Out \\\"POLL_T\\\" $elapsed; Out \\\"POLL_ERROR\\\" $_.Exception.Message } }; if($null -eq $result){ throw (\\\"timeout after ${maxSeconds}s waiting for result for session_id=$sessionId\\\") }; Out \\\"RESULT_BODY\\\" (($result | ConvertTo-Json -Depth 40 -Compress)); $verdict = $null; $confidence = $null; $rerun = $null; $delib = $null; if($result.PSObject.Properties.Name -contains \\\"result\\\"){ $inner = $result.result } else { $inner = $result }; if($null -ne $inner){ if($inner.PSObject.Properties.Name -contains \\\"verdict\\\"){ $verdict = $inner.verdict }; if($inner.PSObject.Properties.Name -contains \\\"confidence\\\"){ $confidence = $inner.confidence }; if($inner.PSObject.Properties.Name -contains \\\"rerun\\\"){ $rerun = $inner.rerun }; if($inner.PSObject.Properties.Name -contains \\\"deliberation_log\\\"){ $delib = $inner.deliberation_log } }; $preview = \\\"\\\"; if($verdict){ $s=[string]$verdict; $preview = if($s.Length -gt 220){ $s.Substring(0,220) } else { $s } }; Out \\\"FINAL_VERDICT_PREVIEW\\\" $preview; Out \\\"FINAL_CONFIDENCE\\\" $confidence; Out \\\"FINAL_RERUN\\\" $rerun; if($delib){ $models = @(); foreach($item in $delib){ $agent=\\\"\\\"; $model=\\\"\\\"; if($item.PSObject.Properties.Name -contains \\\"agent\\\"){ $agent=[string]$item.agent } elseif($item.PSObject.Properties.Name -contains \\\"name\\\"){ $agent=[string]$item.name }; if($item.PSObject.Properties.Name -contains \\\"model\\\"){ $model=[string]$item.model } elseif($item.PSObject.Properties.Name -contains \\\"used_model\\\"){ $model=[string]$item.used_model } elseif($item.PSObject.Properties.Name -contains \\\"selected_model\\\"){ $model=[string]$item.selected_model }; if($agent -or $model){ $models += (\\\"$agent=>$model\\\") } }; Out \\\"AGENT_MODELS\\\" ($models -join \\\";\\\") } else { Out \\\"AGENT_MODELS\\\" \\\"\\\" }; Out \\\"FINAL_STATUS\\\" \\\"SUCCESS\\\" } catch { Out \\\"FINAL_STATUS\\\" \\\"ERROR\\\"; Out \\\"ERROR_REASON\\\" $_.Exception.Message; if($_.ScriptStackTrace){ Out \\\"ERROR_STACK\\\" $_.ScriptStackTrace }; exit 1 }\"",
+			"isBackground": false
+		},
+		{
+			"label": "probe-api-8001-e2e-script",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"tmp_probe_api_8001_e2e.ps1\"",
+			"isBackground": false
+		},
+		{
+			"label": "probe-api-8001-e2e-script-log",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"tmp_probe_api_8001_e2e.ps1\"",
+			"isBackground": false
+		},
+		{
+			"label": "probe-api-8001-e2e-script-direct",
+			"type": "shell",
+			"command": "& \".\\tmp_probe_api_8001_e2e.ps1\"",
+			"isBackground": false
+		},
+		{
+			"label": "run-api-8001-rel",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8001",
+			"isBackground": true
+		},
+		{
+			"label": "probe-api-8001-e2e-script-direct-2",
+			"type": "shell",
+			"command": "& \".\\tmp_probe_api_8001_e2e.ps1\"",
+			"isBackground": false
+		},
+		{
+			"label": "probe-api-8001-inline",
+			"type": "shell",
+			"command": "$ErrorActionPreference='Stop'; $base='http://127.0.0.1:8001'; $healthResp=Invoke-WebRequest -Uri \"$base/api/health\" -Method GET; $agentsResp=Invoke-WebRequest -Uri \"$base/api/agents\" -Method GET; $question='Short runtime probe?'; $startResp=Invoke-WebRequest -Uri \"$base/api/council/start\" -Method POST -Body @{question=$question;rounds='1'}; $health=$healthResp.Content | ConvertFrom-Json; $agents=$agentsResp.Content | ConvertFrom-Json; $start=$startResp.Content | ConvertFrom-Json; Write-Output ('HEALTH_STATUS=' + $healthResp.StatusCode); Write-Output ('HEALTH_BODY=' + ($health | ConvertTo-Json -Depth 20 -Compress)); Write-Output ('AGENTS_STATUS=' + $agentsResp.StatusCode); Write-Output ('AGENTS_BODY=' + ($agents | ConvertTo-Json -Depth 20 -Compress)); Write-Output ('START_STATUS=' + $startResp.StatusCode); Write-Output ('START_BODY=' + ($start | ConvertTo-Json -Depth 20 -Compress)); if(-not $start.session_id){ throw 'start response missing session_id' }; $sid=$start.session_id; Write-Output ('SESSION_ID=' + $sid); $deadline=(Get-Date).AddMinutes(8); $resultObj=$null; while((Get-Date) -lt $deadline){ Start-Sleep -Seconds 2; try { $resResp=Invoke-WebRequest -Uri \"$base/api/council/result/$sid\" -Method GET; $res=$resResp.Content | ConvertFrom-Json; Write-Output ('POLL_STATUS=' + $resResp.StatusCode); if($res.result){ $resultObj=$res; break } if($res.status -in @('completed','done','success')){ $resultObj=$res; break } } catch { Write-Output ('POLL_ERROR=' + $_.Exception.Message) } }; if(-not $resultObj){ throw ('timeout after 8 minutes waiting for session_id=' + $sid) }; Write-Output ('RESULT_BODY=' + ($resultObj | ConvertTo-Json -Depth 50 -Compress)); $inner=if($resultObj.result){$resultObj.result}else{$resultObj}; $verdict=$inner.verdict; $confidence=$inner.confidence; $rerun=$inner.rerun; $models=''; if($inner.deliberation_log){ $pairs=@(); foreach($d in $inner.deliberation_log){ $an=''; if($d.agent){$an=$d.agent}elseif($d.name){$an=$d.name}; $mn=''; if($d.model){$mn=$d.model}elseif($d.used_model){$mn=$d.used_model}elseif($d.selected_model){$mn=$d.selected_model}; if($an -or $mn){$pairs += ($an + '=>' + $mn)} }; $models=($pairs -join ';') }; $preview=''; if($verdict){ $sv=[string]$verdict; if($sv.Length -gt 240){$preview=$sv.Substring(0,240)}else{$preview=$sv}}; Write-Output ('FINAL_VERDICT_PREVIEW=' + $preview); Write-Output ('FINAL_CONFIDENCE=' + $confidence); Write-Output ('FINAL_RERUN=' + $rerun); Write-Output ('AGENT_MODELS=' + $models); Write-Output 'FINAL_STATUS=SUCCESS'",
+			"isBackground": false
+		},
+		{
+			"label": "live-e2e-probe-8001-6m",
+			"type": "shell",
+			"command": "$ErrorActionPreference='Stop'; $base='http://127.0.0.1:8001'; $healthResp=Invoke-WebRequest -Uri \"$base/api/health\" -Method GET; $agentsResp=Invoke-WebRequest -Uri \"$base/api/agents\" -Method GET; $question='Short runtime probe?'; $startResp=Invoke-WebRequest -Uri \"$base/api/council/start\" -Method POST -Body @{question=$question;rounds='1'}; $health=$healthResp.Content | ConvertFrom-Json; $agents=$agentsResp.Content | ConvertFrom-Json; $start=$startResp.Content | ConvertFrom-Json; Write-Output ('HEALTH_STATUS=' + $healthResp.StatusCode); Write-Output ('HEALTH_BODY=' + ($health | ConvertTo-Json -Depth 20 -Compress)); Write-Output ('AGENTS_STATUS=' + $agentsResp.StatusCode); Write-Output ('AGENTS_BODY=' + ($agents | ConvertTo-Json -Depth 20 -Compress)); Write-Output ('START_STATUS=' + $startResp.StatusCode); Write-Output ('START_BODY=' + ($start | ConvertTo-Json -Depth 20 -Compress)); if(-not $start.session_id){ throw 'start response missing session_id' }; $sid=$start.session_id; Write-Output ('SESSION_ID=' + $sid); $deadline=(Get-Date).AddMinutes(6); $resultObj=$null; while((Get-Date) -lt $deadline){ Start-Sleep -Seconds 2; try { $resResp=Invoke-WebRequest -Uri \"$base/api/council/result/$sid\" -Method GET; $res=$resResp.Content | ConvertFrom-Json; Write-Output ('POLL_STATUS=' + $resResp.StatusCode); if($res.result){ $resultObj=$res; break } if($res.status -in @('completed','done','success','complete')){ $resultObj=$res; break } } catch { Write-Output ('POLL_ERROR=' + $_.Exception.Message) } }; if(-not $resultObj){ throw ('timeout after 6 minutes waiting for session_id=' + $sid) }; Write-Output ('RESULT_BODY=' + ($resultObj | ConvertTo-Json -Depth 50 -Compress)); $inner=if($resultObj.result){$resultObj.result}else{$resultObj}; $verdict=$inner.verdict; $confidence=$inner.confidence; $rerun=$inner.rerun; $models=''; if($inner.deliberation_log){ $pairs=@(); foreach($d in $inner.deliberation_log){ $an=''; if($d.agent){$an=$d.agent}elseif($d.name){$an=$d.name}; $mn=''; if($d.model){$mn=$d.model}elseif($d.used_model){$mn=$d.used_model}elseif($d.selected_model){$mn=$d.selected_model}; if($an -or $mn){ $pairs += ($an + '=>' + $mn)} }; $models=($pairs -join ';') }; $preview=''; if($verdict){ $sv=[string]$verdict; if($sv.Length -gt 240){$preview=$sv.Substring(0,240)}else{$preview=$sv}}; $fallback=$false; if($verdict -match 'could not produce a full verdict|all configured judge models failed|fallback'){ $fallback=$true }; Write-Output ('FINAL_VERDICT_PREVIEW=' + $preview); Write-Output ('FINAL_CONFIDENCE=' + $confidence); Write-Output ('FINAL_RERUN=' + $rerun); Write-Output ('FALLBACK_FAILURE_WORDING=' + $fallback); Write-Output ('AGENT_MODELS=' + $models); Write-Output 'FINAL_STATUS=SUCCESS'",
+			"isBackground": false
+		},
+		{
+			"label": "probe-api-8002-e2e",
+			"type": "shell",
+			"command": "$ErrorActionPreference='Stop'; $base='http://127.0.0.1:8002'; $healthResp=Invoke-WebRequest -Uri \"$base/api/health\" -Method GET; $agentsResp=Invoke-WebRequest -Uri \"$base/api/agents\" -Method GET; $question='Short runtime probe?'; $startResp=Invoke-WebRequest -Uri \"$base/api/council/start\" -Method POST -Body @{question=$question;rounds='1'}; $health=$healthResp.Content | ConvertFrom-Json; $agents=$agentsResp.Content | ConvertFrom-Json; $start=$startResp.Content | ConvertFrom-Json; Write-Output ('HEALTH_STATUS=' + $healthResp.StatusCode); Write-Output ('HEALTH_BODY=' + ($health | ConvertTo-Json -Depth 20 -Compress)); Write-Output ('AGENTS_STATUS=' + $agentsResp.StatusCode); Write-Output ('AGENTS_BODY=' + ($agents | ConvertTo-Json -Depth 20 -Compress)); Write-Output ('START_STATUS=' + $startResp.StatusCode); Write-Output ('START_BODY=' + ($start | ConvertTo-Json -Depth 20 -Compress)); if(-not $start.session_id){ throw 'start response missing session_id' }; $sid=$start.session_id; Write-Output ('SESSION_ID=' + $sid); $deadline=(Get-Date).AddMinutes(6); $resultObj=$null; while((Get-Date) -lt $deadline){ Start-Sleep -Seconds 2; try { $resResp=Invoke-WebRequest -Uri \"$base/api/council/result/$sid\" -Method GET; $res=$resResp.Content | ConvertFrom-Json; Write-Output ('POLL_STATUS=' + $resResp.StatusCode); if($res.result){ $resultObj=$res; break } if($res.status -in @('completed','done','success','complete')){ $resultObj=$res; break } } catch { Write-Output ('POLL_ERROR=' + $_.Exception.Message) } }; if(-not $resultObj){ throw ('timeout after 6 minutes waiting for session_id=' + $sid) }; Write-Output ('RESULT_BODY=' + ($resultObj | ConvertTo-Json -Depth 50 -Compress)); $inner=if($resultObj.result){$resultObj.result}else{$resultObj}; $verdict=$inner.verdict; $confidence=$inner.confidence; $rerun=$inner.rerun; $models=''; if($inner.deliberation_log){ $pairs=@(); foreach($d in $inner.deliberation_log){ $an=''; if($d.agent){$an=$d.agent}elseif($d.name){$an=$d.name}; $mn=''; if($d.model){$mn=$d.model}elseif($d.used_model){$mn=$d.used_model}elseif($d.selected_model){$mn=$d.selected_model}; if($an -or $mn){ $pairs += ($an + '=>' + $mn)} }; $models=($pairs -join ';') }; $preview=''; if($verdict){ $sv=[string]$verdict; if($sv.Length -gt 240){$preview=$sv.Substring(0,240)}else{$preview=$sv}}; $fallback=$false; if($verdict -match 'could not produce a full verdict|all configured judge models failed|fallback'){ $fallback=$true }; Write-Output ('FINAL_VERDICT_PREVIEW=' + $preview); Write-Output ('FINAL_CONFIDENCE=' + $confidence); Write-Output ('FINAL_RERUN=' + $rerun); Write-Output ('FALLBACK_FAILURE_WORDING=' + $fallback); Write-Output ('AGENT_MODELS=' + $models); Write-Output 'FINAL_STATUS=SUCCESS'",
+			"isBackground": false
+		},
+		{
+			"label": "probe-api-8002-e2e-script",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"tmp_probe_api_8002_e2e.ps1"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-api-8002",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"-m",
+				"uvicorn",
+				"backend.app:app",
+				"--host",
+				"127.0.0.1",
+				"--port",
+				"8002"
+			],
+			"isBackground": true,
+			"problemMatcher": [
+				"$uvicorn"
+			],
+			"group": "build"
+		},
+		{
+			"label": "probe-api-8002-e2e-live",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"tmp_probe_api_8002_e2e.ps1"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "probe-api-8003-e2e-live",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$ErrorActionPreference='Stop'; $base='http://127.0.0.1:8003'; $healthResp=Invoke-WebRequest -Uri \"$base/api/health\" -Method GET; $agentsResp=Invoke-WebRequest -Uri \"$base/api/agents\" -Method GET; $question='Short runtime probe?'; $startResp=Invoke-WebRequest -Uri \"$base/api/council/start\" -Method POST -Body @{question=$question;rounds='1'}; $health=$healthResp.Content | ConvertFrom-Json; $agents=$agentsResp.Content | ConvertFrom-Json; $start=$startResp.Content | ConvertFrom-Json; Write-Output ('HEALTH_STATUS=' + $healthResp.StatusCode); Write-Output ('HEALTH_BODY=' + ($health | ConvertTo-Json -Depth 20 -Compress)); Write-Output ('AGENTS_STATUS=' + $agentsResp.StatusCode); Write-Output ('AGENTS_BODY=' + ($agents | ConvertTo-Json -Depth 20 -Compress)); Write-Output ('START_STATUS=' + $startResp.StatusCode); Write-Output ('START_BODY=' + ($start | ConvertTo-Json -Depth 20 -Compress)); if(-not $start.session_id){ throw 'start response missing session_id' }; $sid=$start.session_id; Write-Output ('SESSION_ID=' + $sid); $deadline=(Get-Date).AddMinutes(6); $resultObj=$null; while((Get-Date) -lt $deadline){ Start-Sleep -Seconds 2; try { $resResp=Invoke-WebRequest -Uri \"$base/api/council/result/$sid\" -Method GET; $res=$resResp.Content | ConvertFrom-Json; Write-Output ('POLL_STATUS=' + $resResp.StatusCode); if($res.result){ $resultObj=$res; break } if($res.status -in @('completed','done','success','complete')){ $resultObj=$res; break } } catch { Write-Output ('POLL_ERROR=' + $_.Exception.Message) } }; if(-not $resultObj){ throw ('timeout after 6 minutes waiting for session_id=' + $sid) }; Write-Output ('RESULT_BODY=' + ($resultObj | ConvertTo-Json -Depth 50 -Compress)); $inner=if($resultObj.result){$resultObj.result}else{$resultObj}; $verdict=$inner.verdict; $confidence=$inner.confidence; $rerun=$inner.rerun; $models=''; if($inner.deliberation_log){ $pairs=@(); foreach($d in $inner.deliberation_log){ $an=''; if($d.agent){$an=$d.agent}elseif($d.name){$an=$d.name}; $mn=''; if($d.model){$mn=$d.model}elseif($d.used_model){$mn=$d.used_model}elseif($d.selected_model){$mn=$d.selected_model}; if($an -or $mn){ $pairs += ($an + '=>' + $mn)} }; $models=($pairs -join ';') }; $preview=''; if($verdict){ $sv=[string]$verdict; if($sv.Length -gt 240){$preview=$sv.Substring(0,240)}else{$preview=$sv}}; $fallback=$false; if($verdict -match 'could not produce a full verdict|all configured judge models failed|fallback'){ $fallback=$true }; Write-Output ('FINAL_VERDICT_PREVIEW=' + $preview); Write-Output ('FINAL_CONFIDENCE=' + $confidence); Write-Output ('FINAL_RERUN=' + $rerun); Write-Output ('FALLBACK_FAILURE_WORDING=' + $fallback); Write-Output ('AGENT_MODELS=' + $models); Write-Output 'FINAL_STATUS=SUCCESS'"
+			],
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "probe-api-8003-e2e-script",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"tmp_probe_api_8003_e2e.ps1"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-api-8003",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"-m",
+				"uvicorn",
+				"backend.app:app",
+				"--host",
+				"127.0.0.1",
+				"--port",
+				"8003"
+			],
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "probe-api-8003-e2e-live",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"tmp_probe_api_8003_e2e.ps1"
+			],
+			"isBackground": false
+		}
+	]
+}

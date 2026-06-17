@@ -1,0 +1,22 @@
+# Environment and dependencies
+.venv/
+node_modules/
+__pycache__/
+.pytest_cache/
+
+# ML Models (huge files)
+ml_engine/models/*.gguf
+ml_engine/models/*.bin
+*.gguf
+
+# Next.js build output
+frontend/.next/
+frontend/out/
+
+# Environment variables
+.env
+.env.local
+
+# OS specific
+.DS_Store
+Thumbs.db

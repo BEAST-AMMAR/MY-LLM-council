@@ -1,0 +1,4 @@
+{
+  "summary":  "Local ML inference engine written in Python. Uses aiohttp and llama-cpp-python to load models locally. Includes a MOCK_MODE for rapid UI development.",
+  "updatedAt":  "2026-06-17T13:38:35.668831400Z"
+}

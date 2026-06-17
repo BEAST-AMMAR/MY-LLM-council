@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+@theme {
+  --color-background: #04040f;
+  --color-surface: rgba(8, 12, 35, 0.85);
+  --color-border: rgba(79, 172, 254, 0.15);
+  --color-cyan: #4facfe;
+  --color-green: #00f260;
+  --color-purple: #a855f7;
+  --color-red: #ff6b6b;
+  --color-gold: #ffd700;
+  --color-text: #e0eeff;
+  --color-muted: #7a92b4;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text);
+  }
+}
+
+.hex-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpolygon points='30,1 58,16 58,36 30,51 2,36 2,16' fill='none' stroke='%234facfe' stroke-width='0.3' opacity='0.15'/%3E%3C/svg%3E");
+  background-size: 60px 52px;
+  animation: hexDrift 40s linear infinite;
+}
+
+@keyframes hexDrift {
+  from { background-position: 0 0; }
+  to { background-position: 120px 104px; }
+}
+
+.glass-panel {
+  background: var(--color-surface);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(79, 172, 254, 0.4);
+}
