@@ -7,9 +7,11 @@ import asyncio
 import server
 
 import pytest_asyncio
+import importlib
 
 @pytest_asyncio.fixture
 async def cli(aiohttp_client):
+    importlib.reload(server)
     app = server.app
     # Set mock mode for testing
     server.MOCK_MODE = True

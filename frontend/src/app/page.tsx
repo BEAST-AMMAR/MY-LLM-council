@@ -21,6 +21,7 @@ export default function CouncilApp() {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const handleMicClick = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert('Speech Recognition API not supported in this browser.');
@@ -32,12 +33,15 @@ export default function CouncilApp() {
     recognition.interimResults = true;
     
     recognition.onstart = () => setIsRecording(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       const transcript = Array.from(event.results)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((result: any) => result[0].transcript)
         .join('');
       setQuestion(transcript);
     };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
       console.error(event.error);
       setIsRecording(false);
@@ -63,7 +67,7 @@ export default function CouncilApp() {
   const handleExport = (format: 'json' | 'md') => {
     let content = "";
     let type = "text/plain";
-    let filename = `llm_council_export.${format}`;
+    const filename = `llm_council_export.${format}`;
 
     if (format === 'json') {
       content = JSON.stringify({ question, responses, judgeVerdict }, null, 2);
@@ -138,7 +142,7 @@ export default function CouncilApp() {
                   setResponses(prev => ({...prev, [agentId]: fullText}));
                 }
               }
-            } catch (e) {}
+            } catch { }
           }
         }
       }

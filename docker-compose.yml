@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   ml_engine:
+    image: ammar2706/llm-council-ml_engine:latest
     build:
       context: ./ml_engine
       dockerfile: Dockerfile
@@ -22,6 +23,7 @@ services:
     #           capabilities: [gpu]
 
   frontend:
+    image: ammar2706/llm-council-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
