@@ -4,3 +4,17 @@ huggingface-hub
 llama-cpp-python
 pytest
 pytest-asyncio
+SQLAlchemy
+bcrypt
+python-jose[cryptography]
+langgraph
+langchain
+langchain-openai
+python-multipart
+pydantic
+python-dotenv
+fastapi
+uvicorn
+websockets
+duckduckgo-search
+langchain-community

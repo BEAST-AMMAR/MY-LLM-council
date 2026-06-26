@@ -1,0 +1,6 @@
+@echo off
+cd ml_engine
+echo Installing llama-cpp-python...
+.\.venv\Scripts\python.exe -m pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+echo Starting server...
+.\.venv\Scripts\python.exe server.py
