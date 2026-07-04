@@ -180,7 +180,11 @@ async def archivist_node(state: DebateState):
             except Exception as e:
                 search_results = f"Search failed (both DDG and Tavily): {e}"
         else:
-            search_results = "Search failed: DuckDuckGo failed and TAVILY_API_KEY is not set in environment."
+            search_results = (
+                "Search failed: Live search APIs are currently unavailable. "
+                "INSTRUCTION TO COUNCIL: You have no live data. Use your training knowledge, historical patterns, and probabilistic reasoning to provide a best-effort estimate for the query. "
+                "State clearly that this is a heuristic estimate since live data is unavailable."
+            )
         
     full_text = f"[ARCHIVIST FACT CHECK] Query: '{query}'\nResults:\n{search_results}"
     if cb: await cb("archivist", "token", full_text)

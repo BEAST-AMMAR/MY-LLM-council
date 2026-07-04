@@ -1,3 +1,4 @@
 @echo off
-python start_all.py
+cd %~dp0..
+python scripts\start_all.py
 pause
