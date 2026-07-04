@@ -1,19 +1,22 @@
 # Product Requirements Document (PRD)
-## Project Name: LLM Council
+## Project Name: LLM Council (v4.0 Enterprise Edition)
 
 ### 1. Introduction
-LLM Council is a multi-agent AI debate system where four specialized LLM agents discuss and debate a user-provided prompt or topic, while a fifth "Judge" agent oversees the debate, synthesizes arguments, and delivers a final verdict. The product allows users to gain diverse perspectives on complex problems before arriving at a well-reasoned conclusion.
+LLM Council is a multi-agent AI debate system where specialized LLM agents discuss and debate a user-provided prompt or topic, while a "Judge" agent oversees the debate, synthesizes arguments, and delivers a final verdict. The product allows users to gain diverse perspectives on complex problems before arriving at a well-reasoned conclusion. Version 4.0 elevates this to an enterprise standard with robust security, rate-limiting, and custom agent capabilities.
 
 ### 2. Objectives
 - Provide users with highly nuanced, well-debated answers to complex queries.
 - Support multimodal inputs (Text, Voice, Image, and live Webcam Video) to make the council accessible and versatile.
 - Deliver an interactive "JARVIS-like" user interface where users can watch the AI agents deliberate in real-time.
 - Offer local and cloud model execution capabilities.
+- **Provide enterprise-grade security against DoS attacks, brute-force attempts, and memory exhaustion.**
+- **Allow dynamic creation and persistence of Custom Agents via the UI.**
 
 ### 3. Target Audience
 - Researchers and professionals looking for deep analysis of complex topics.
 - Developers and tech enthusiasts interested in multi-agent LangGraph architectures.
 - General users seeking an advanced alternative to single-model chatbots.
+- **Enterprise teams needing secure, rate-limited AI deployment.**
 
 ### 4. Key Features
 #### 4.1. The Council (Multi-Agent System)
@@ -22,6 +25,7 @@ LLM Council is a multi-agent AI debate system where four specialized LLM agents 
 - **Strategist (Visionary)**: Focuses on actionable plans, future trends, and out-of-the-box thinking.
 - **Skeptic (Challenger)**: Acts as the devil's advocate, finding flaws in the other agents' reasoning.
 - **Judge**: Synthesizes the debate, issues a final verdict, provides a confidence score, and determines if a rerun is necessary.
+- **Custom Agents**: Users can define their own agents (Name, Role, System Prompt) that persist in the database and can be swapped into the debate.
 
 #### 4.2. Multimodal Inputs
 - **Text**: Standard keyboard input.
@@ -39,13 +43,19 @@ LLM Council is a multi-agent AI debate system where four specialized LLM agents 
 #### 4.5. Hybrid Model Support
 - Users can toggle between **Cloud Mode** (OpenRouter APIs for Llama 3, Qwen, Gemini, DeepSeek, Mistral) and **Local Mode** (using locally downloaded weights for privacy).
 
+#### 4.6. Enterprise Security
+- Strict `slowapi` rate limiting on auth routes.
+- Strict payload limits (5MB) on WebSockets to prevent memory exhaustion.
+- Pydantic input validation to prevent buffer overflows and DB bloat.
+
 ### 5. Non-Functional Requirements
 - **Performance**: Real-time WebSocket streaming with minimal latency.
-- **Reliability**: Fallback systems for API timeouts. The Judge has a safe low-confidence fallback if all models fail.
+- **Reliability**: Fallback systems for API timeouts (e.g., DuckDuckGo -> Tavily search fallback).
 - **Scalability**: Stateless WebSocket design allowing for multiple concurrent debate sessions.
-- **Security**: Local SQLite database for session and user authentication. Token-based auth for secure access.
+- **Security**: Local SQLite database for session and user authentication. Token-based auth for secure access with strict expiration policies.
 
 ### 6. Future Enhancements
-- Integration of custom user-defined agents.
-- Saving debate transcripts and exporting to PDF.
-- Persistent user history across devices.
+- Integration of custom user-defined agents (Completed).
+- Saving debate transcripts and exporting to PDF (Completed).
+- Persistent user history across devices (Completed).
+- Migration from SQLite to PostgreSQL for distributed scaling.

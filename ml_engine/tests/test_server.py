@@ -228,11 +228,14 @@ async def test_adapter_mock_fallback():
 # ─── 8. Debate Graph Structure ──────────────────────────────────
 
 def test_debate_graph_nodes():
-    """Graph has all required nodes."""
-    from debate_graph import workflow
-    node_names = set(workflow.nodes.keys())
+    """Default graph has all required nodes."""
+    from debate_graph import build_graph
+    compiled = build_graph()
+    # The compiled graph exposes nodes via .get_graph().nodes
+    graph_data = compiled.get_graph()
+    node_ids = set(graph_data.nodes.keys()) if isinstance(graph_data.nodes, dict) else {node.id for node in graph_data.nodes}
     required = {"archivist", "sage", "analyst", "strategist", "skeptic", "judge", "crossfire"}
-    assert required.issubset(node_names), f"Missing nodes: {required - node_names}"
+    assert required.issubset(node_ids), f"Missing nodes: {required - node_ids}"
 
 def test_debate_graph_compiles():
     """Graph compiles into a runnable app."""

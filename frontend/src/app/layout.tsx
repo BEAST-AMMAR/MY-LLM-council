@@ -6,8 +6,8 @@ const exo2 = Exo_2({ subsets: ["latin"], variable: "--font-exo" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
 export const metadata: Metadata = {
-  title: "LLM Council v3.0 | Offline Deliberation",
-  description: "Fully offline, multi-agent LLM council powered by local inference.",
+  title: "LLM Council v4.0 | Multi-Agent Deliberation",
+  description: "Multi-agent LLM council powered by hybrid cloud and local inference.",
 };
 
 export default function RootLayout({

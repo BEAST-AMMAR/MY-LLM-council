@@ -18,3 +18,7 @@ uvicorn
 websockets
 duckduckgo-search
 langchain-community
+chromadb==0.4.24
+slowapi==0.1.9
+httpx
+fpdf2

@@ -3,20 +3,23 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
+const API_BASE = process.env.NEXT_PUBLIC_ML_ENGINE_URL || "http://localhost:8001";
+
 export default function AuthPage() {
     const [isLogin, setIsLogin] = useState(true);
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        setSuccessMessage("");
         
         try {
             if (isLogin) {
-                // Next.js proxy or direct API
-                const response = await fetch("http://localhost:8001/api/auth/token", {
+                const response = await fetch(`${API_BASE}/api/auth/token`, {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
                     body: new URLSearchParams({
@@ -26,7 +29,8 @@ export default function AuthPage() {
                 });
                 
                 if (!response.ok) {
-                    throw new Error("Invalid credentials");
+                    const data = await response.json().catch(() => null);
+                    throw new Error(data?.detail || "Invalid credentials");
                 }
                 
                 const data = await response.json();
@@ -34,7 +38,7 @@ export default function AuthPage() {
                 // Redirect to main page
                 window.location.href = "/";
             } else {
-                const response = await fetch("http://localhost:8001/api/auth/register", {
+                const response = await fetch(`${API_BASE}/api/auth/register`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -44,11 +48,12 @@ export default function AuthPage() {
                 });
                 
                 if (!response.ok) {
-                    throw new Error("Registration failed");
+                    const data = await response.json().catch(() => null);
+                    throw new Error(data?.detail || "Registration failed");
                 }
                 
                 setIsLogin(true);
-                setError("Registration successful! Please log in.");
+                setSuccessMessage("Registration successful! Please log in.");
             }
         } catch (err: any) {
             setError(err.message);
@@ -107,8 +112,14 @@ export default function AuthPage() {
                             />
                         </div>
 
+                        {successMessage && (
+                            <p className="text-sm text-center text-green-400">
+                                {successMessage}
+                            </p>
+                        )}
+
                         {error && (
-                            <p className={`text-sm text-center ${error.includes('successful') ? 'text-green-400' : 'text-red-500'}`}>
+                            <p className="text-sm text-center text-red-500">
                                 {error}
                             </p>
                         )}

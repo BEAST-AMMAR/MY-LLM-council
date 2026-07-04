@@ -10,6 +10,8 @@ services:
       - "8001:8001"
     volumes:
       - ./ml_engine/models:/app/models
+    env_file:
+      - ./ml_engine/.env
     environment:
       - PORT=8001
     restart: unless-stopped

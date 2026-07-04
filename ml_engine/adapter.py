@@ -81,6 +81,7 @@ class HybridLLMAdapter:
                     api_key=OPENROUTER_API_KEY,
                     base_url=OPENROUTER_BASE_URL,
                     max_retries=0, # Disable langchain retries to handle fallbacks manually
+                    request_timeout=60,
                     streaming=True
                 )
                 self.cloud_clients[agent].append(client)
@@ -117,26 +118,39 @@ class HybridLLMAdapter:
             success = False
             
             # Iterate through the fallback chain
+            MAX_RETRIES_PER_MODEL = 3
+            
             for index, client in enumerate(clients):
-                try:
-                    # Notify UI if we are using a fallback
-                    if index > 0:
-                        yield f" [Falling back to {self.cloud_models[agent_id][index]}] "
+                model_success = False
+                
+                for attempt in range(MAX_RETRIES_PER_MODEL):
+                    try:
+                        # Notify UI if we are using a fallback
+                        if index > 0 and attempt == 0:
+                            yield f"\n\n[Falling back to {self.cloud_models[agent_id][index]}]\n\n"
+                        elif attempt > 0:
+                            # Silently retry or print to console instead of spamming UI
+                            print(f"[ADAPTER] Retrying {self.cloud_models[agent_id][index]} (Attempt {attempt+1}/{MAX_RETRIES_PER_MODEL})...")
+                            
+                        async for chunk in client.astream(messages):
+                            if chunk.content:
+                                yield chunk.content
                         
-                    async for chunk in client.astream(messages):
-                        if chunk.content:
-                            yield chunk.content
-                    
+                        model_success = True
+                        break # Break out of attempt loop
+                        
+                    except Exception as e:
+                        print(f"[ADAPTER] Error with model {self.cloud_models[agent_id][index]} for agent {agent_id} (Attempt {attempt+1}): {e}")
+                        last_error = e
+                        await asyncio.sleep(2 * (attempt + 1)) # Exponential backoff
+                        continue # Try again
+                
+                if model_success:
                     success = True
-                    break # Break out of fallback loop if successful
-                    
-                except Exception as e:
-                    print(f"[ADAPTER] Error with model {self.cloud_models[agent_id][index]} for agent {agent_id}: {e}")
-                    last_error = e
-                    continue # Try next model
+                    break # Break out of fallback loop
             
             if not success:
-                yield f"\n[System Error: All API models failed for {agent_id}. Reason: {last_error}]"
+                yield f"\n\n[System Error: All API models failed for {agent_id} after retries. Last Reason: {last_error}]\n\n"
                     
         else:
             # Local Mode or Mock Mode
@@ -159,6 +173,41 @@ class HybridLLMAdapter:
         async for token in self.ainvoke_stream(agent_id, prompt):
             full_text += token
         return full_text
+
+    async def ainvoke_custom_agent_stream(self, agent_name: str, model_id: str, provider: str, system_prompt: str, prompt: str):
+        """Async generator for dynamically defined custom agents"""
+        if provider == "openrouter" and OPENROUTER_API_KEY:
+            client = ChatOpenAI(
+                model=model_id,
+                api_key=OPENROUTER_API_KEY,
+                base_url=OPENROUTER_BASE_URL,
+                max_retries=0,
+                request_timeout=60,
+                streaming=True
+            )
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=prompt)
+            ]
+            MAX_RETRIES = 3
+            last_error = None
+            for attempt in range(MAX_RETRIES):
+                try:
+                    if attempt > 0:
+                        print(f"[ADAPTER] Retrying custom agent '{agent_name}' with model '{model_id}' (Attempt {attempt+1}/{MAX_RETRIES})...")
+                    async for chunk in client.astream(messages):
+                        if chunk.content:
+                            yield chunk.content
+                    return # Exit generator on success
+                except Exception as e:
+                    print(f"[ADAPTER] Error with custom agent {agent_name} (Attempt {attempt+1}): {e}")
+                    last_error = e
+                    await asyncio.sleep(2 * (attempt + 1))
+            
+            yield f"\n\n[System Error: Custom agent '{agent_name}' with model '{model_id}' failed after retries. Last Reason: {last_error}]\n\n"
+        else:
+            # Handle local or fallback mock
+            yield f"[MOCK {agent_name.upper()}] Model: {model_id}. Local execution for custom agents not fully configured. Processing prompt..."
 
 # Singleton instance
 hybrid_adapter = HybridLLMAdapter()
