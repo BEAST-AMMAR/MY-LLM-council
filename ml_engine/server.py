@@ -112,7 +112,10 @@ def export_pdf(history_id: int, db: Session = Depends(get_db), current_user: Use
     messages = db.query(DebateMessage).filter(DebateMessage.chat_history_id == history_id).order_by(DebateMessage.id.asc()).all()
     verdicts = db.query(Verdict).filter(Verdict.chat_history_id == history_id).order_by(Verdict.id.asc()).all()
     
-    output_path = os.path.join(os.path.dirname(__file__), f"debate_report_{history_id}.pdf")
+    reports_dir = os.path.realpath(os.path.dirname(__file__))
+    output_path = os.path.realpath(os.path.join(reports_dir, f"debate_report_{history_id}.pdf"))
+    if os.path.commonpath([reports_dir, output_path]) != reports_dir:
+        raise HTTPException(status_code=400, detail="Invalid report path")
     _generate_debate_report(history, messages, verdicts, output_path)
     return FileResponse(output_path, filename=f"LLM_Council_Debate_{history_id}.pdf")
 
